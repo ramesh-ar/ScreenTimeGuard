@@ -8,13 +8,21 @@ early.
 ## Architecture
 
 ```
-android/app/src/main/java/com/screentimeguard/modules/
-├── UsageStatsModule.kt          # Reads per-app usage via UsageStatsManager
-├── AppLockModule.kt              # Reads/writes lock state (SharedPreferences)
-├── ScreenTimeGuardPackage.kt      # Registers native modules with RN
-├── AppBlockAccessibilityService.kt  # Watches foreground app, enforces limits
-└── LockScreenActivity.kt         # Full-screen block UI, native (fast, no JS)
+android/                             # Full RN Android project (settings.gradle,
+│                                     # build.gradle, MainActivity, manifest, etc.)
+├── app/src/main/java/com/screentimeguard/
+│   ├── MainApplication.kt
+│   ├── MainActivity.kt
+│   └── modules/
+│       ├── UsageStatsModule.kt          # Reads per-app usage via UsageStatsManager
+│       ├── AppLockModule.kt              # Reads/writes lock state (SharedPreferences)
+│       ├── ScreenTimeGuardPackage.kt      # Registers native modules with RN
+│       ├── AppBlockAccessibilityService.kt  # Watches foreground app, enforces limits
+│       └── LockScreenActivity.kt         # Full-screen block UI, native (fast, no JS)
+├── app/debug.keystore                 # Auto-generated debug signing key (see below)
+└── app/proguard-rules.pro
 
+App.tsx, index.js, app.json            # JS entry point + navigation
 src/
 ├── native/ScreenTimeBridge.ts     # JS wrapper around native modules
 ├── services/
@@ -47,20 +55,22 @@ functions/index.js                 # Firebase Cloud Function: sends FCM push
   sends the FCM push, and the requester's device listens live for the
   approval to flip a flag the AccessibilityService respects.
 
-## Setup checklist
+## About the Gradle wrapper
 
-1. `npx react-native init` scaffold already assumed — drop these folders in.
-2. Merge `AndroidManifest_SNIPPET.xml` into your real `AndroidManifest.xml`.
-3. Register `ScreenTimeGuardPackage` in `MainApplication.kt`'s
-   `getPackages()` list.
-4. Add a `strings.xml` entry for `accessibility_service_description`.
-5. `firebase init firestore functions messaging`, deploy `functions/index.js`.
-6. Add battery-optimization-exemption prompts for OEMs (Xiaomi/Huawei/etc.)
-   that aggressively kill background services — otherwise the
-   AccessibilityService can get killed and stop enforcing limits.
-7. **Play Store note:** apps requesting Accessibility Service access get
-   extra review scrutiny. Your store listing needs a clear explanation
-   (and ideally a demo video) of why it's needed, or it risks rejection.
+This repo does **not** commit `gradlew`, `gradlew.bat`, or
+`gradle-wrapper.jar` (the last one is a binary file). Instead, the CI
+workflow provisions a real `gradle` binary via `gradle/actions/setup-gradle`
+and runs `gradle wrapper --gradle-version 8.10.2` to generate all three
+fresh on every run — see `.github/workflows/build-apk.yml`.
+
+If you want to build **locally** (not just via CI), you'll need to do the
+same once:
+```bash
+cd android
+gradle wrapper --gradle-version 8.10.2   # requires Gradle installed locally,
+                                           # or open the project in Android
+                                           # Studio, which generates it for you
+```
 
 ## GitHub Actions: building a release APK
 
@@ -68,34 +78,48 @@ functions/index.js                 # Firebase Cloud Function: sends FCM push
 and uploads the APK as a workflow artifact. Pushing a tag like `v1.0.0`
 additionally creates a GitHub Release with the APK attached.
 
-To get **signed** release builds (recommended before sharing the APK):
+By default (no secrets configured), the workflow:
+- Always runs `assembleRelease` (this is what embeds the JS bundle —
+  never `assembleDebug`, which expects Metro running and shows an
+  "Unable to load script" error when sideloaded standalone)
+- Signs the APK with the committed `android/app/debug.keystore` (safe to
+  commit — it's not a production secret, just a throwaway dev key)
 
-1. Merge `android/app/build.gradle.signing-snippet` into your real
-   `android/app/build.gradle` (see comments inside for the exact keytool
-   command to generate a keystore).
+To switch to a **real production signing key** before publishing anywhere:
+
+1. Generate a keystore:
+   ```bash
+   keytool -genkeypair -v -storetype PKCS12 \
+     -keystore release.keystore -alias screentimeguard \
+     -keyalg RSA -keysize 2048 -validity 10000
+   ```
 2. In your GitHub repo: **Settings → Secrets and variables → Actions**, add:
-   - `RELEASE_KEYSTORE_BASE64` — base64-encoded contents of your `.keystore` file
+   - `RELEASE_KEYSTORE_BASE64` — base64-encoded contents of `release.keystore`
    - `RELEASE_STORE_PASSWORD`
    - `RELEASE_KEY_ALIAS`
    - `RELEASE_KEY_PASSWORD`
-3. Push to `main` — check the **Actions** tab for the `screentimeguard-apk`
-   artifact, or push a `v*` tag to get it attached to a Release instead.
+3. Push to `main` — the workflow automatically switches to the production
+   keystore once it detects the secret is set.
 
-If you skip the signing secrets, the workflow still runs `assembleRelease`
-(always — this is what embeds the JS bundle) but signs it with Android's
-auto-generated debug key instead of a production one. That APK is fully
-installable and self-contained for testing; you just can't publish it to
-the Play Store until you swap in a real keystore.
+## Setup checklist (if adapting/extending this project)
 
-> **Why this matters:** an earlier version of this workflow fell back to
-> `assembleDebug` when no keystore was configured. Debug-*type* builds don't
-> bundle the JS into the APK — they expect a Metro dev server running on
-> your machine — so installing one standalone gives a red "Unable to load
-> script" screen. Always build the `release` type; only the *signing key*
-> should change based on whether you've set up a production keystore.
+1. Add app icons at `android/app/src/main/res/drawable/ic_launcher.xml`
+   (currently a simple placeholder vector — swap for real branding).
+2. Run `npm install` locally once and commit the resulting
+   `package-lock.json` — then re-add `cache: 'npm'` to the workflow's
+   "Set up Node.js" step for faster CI runs.
+3. Add a `google-services.json` (Firebase config) at `android/app/` —
+   required for `@react-native-firebase/*` to initialize. Not committed
+   here since it's project-specific; get it from your Firebase console.
+4. `firebase init firestore functions messaging`, deploy `functions/index.js`.
+5. Add battery-optimization-exemption prompts for OEMs (Xiaomi/Huawei/etc.)
+   that aggressively kill background services — otherwise the
+   AccessibilityService can get killed and stop enforcing limits.
+6. **Play Store note:** apps requesting Accessibility Service access get
+   extra review scrutiny. Your store listing needs a clear explanation
+   (and ideally a demo video) of why it's needed, or it risks rejection.
 
 ## Known gaps to fill before shipping
-
 
 - `AppBlockAccessibilityService`'s 5-second ticker is a simple polling
   approach; for production, consider listening to `TYPE_WINDOW_STATE_CHANGED`
@@ -105,3 +129,8 @@ the Play Store until you swap in a real keystore.
 - Friend/contact management (adding friends, mutual consent) isn't included
   — only the unlock-request mechanics assuming a `users/{id}/friends`
   subcollection already exists.
+- `FriendUnlockScreen` isn't wired into `App.tsx`'s navigation stack yet —
+  it expects a `packageName` prop, typically passed when handling the
+  `screentimeguard://unlock-request?package=...` deep link.
+- `google-services.json` / Firebase project setup isn't included (see
+  Setup checklist above).

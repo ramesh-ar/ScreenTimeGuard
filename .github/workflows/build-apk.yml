@@ -21,10 +21,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # No cache: 'npm' here on purpose — that requires a committed
+          # package-lock.json to key the cache off of. Add it back once
+          # you've run `npm install` locally and committed the lock file.
 
       - name: Install JS dependencies
-        run: npm ci
+        run: npm install
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -42,8 +44,17 @@ jobs:
         run: |
           echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+      - name: Generate Gradle wrapper
+        # This repo doesn't commit the gradle-wrapper.jar binary, so we
+        # provision a real `gradle` here and use it to materialize the
+        # wrapper (gradlew, gradlew.bat, gradle-wrapper.jar) before building.
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Create wrapper files
+        run: |
+          cd android
+          gradle wrapper --gradle-version 8.10.2
+          chmod +x gradlew
 
       - name: Build release APK
         env:

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
-    "start": "react-native start"
+    "start": "react-native start",
+    "lint": "eslint ."
   },
   "dependencies": {
     "react": "18.3.1",
@@ -19,5 +20,20 @@
     "@react-navigation/native-stack": "^7.1.14",
     "react-native-screens": "^4.3.0",
     "react-native-safe-area-context": "^5.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/runtime": "^7.25.0",
+    "@react-native/babel-preset": "0.76.5",
+    "@react-native/metro-config": "0.76.5",
+    "@react-native/gradle-plugin": "0.76.5",
+    "@react-native/eslint-config": "0.76.5",
+    "@react-native/typescript-config": "0.76.5",
+    "@types/react": "^18.3.12",
+    "typescript": "^5.3.3",
+    "eslint": "^8.57.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

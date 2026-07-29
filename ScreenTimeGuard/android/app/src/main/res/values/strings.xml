@@ -1,8 +1,0 @@
-<resources>
-    <string name="app_name">ScreenTimeGuard</string>
-    <string name="accessibility_service_description">
-        ScreenTimeGuard uses this permission to detect when a limited app is
-        opened so it can lock it once your daily time limit is reached. It
-        does not read or collect the content of other apps.
-    </string>
-</resources>
