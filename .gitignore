@@ -1,0 +1,33 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# React Native / Metro
+.metro-health-check*
+*.jsbundle
+
+# Android
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/release.keystore
+*.keystore
+*.jks
+
+# iOS (in case you add it later)
+ios/build/
+ios/Pods/
+
+# Firebase / secrets
+google-services.json
+GoogleService-Info.plist
+functions/node_modules/
+functions/.env
+
+# Misc
+.DS_Store
+*.log
+.vscode/
+.idea/
