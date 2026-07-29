@@ -14,6 +14,7 @@ android/.gradle/
 android/local.properties
 android/app/release.keystore
 *.keystore
+!android/app/debug.keystore
 *.jks
 
 # iOS (in case you add it later)
