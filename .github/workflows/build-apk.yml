@@ -21,9 +21,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # No cache: 'npm' here on purpose — that requires a committed
-          # package-lock.json to key the cache off of. Add it back once
-          # you've run `npm install` locally and committed the lock file.
 
       - name: Install JS dependencies
         run: npm install
@@ -44,11 +41,10 @@ jobs:
         run: |
           echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
 
-      - name: Generate Gradle wrapper
-        # This repo doesn't commit the gradle-wrapper.jar binary, so we
-        # provision a real `gradle` here and use it to materialize the
-        # wrapper (gradlew, gradlew.bat, gradle-wrapper.jar) before building.
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
 
       - name: Create wrapper files
         run: |
@@ -58,19 +54,12 @@ jobs:
 
       - name: Build release APK
         env:
-          # Only set RELEASE_STORE_FILE when the keystore secret actually
-          # exists — the build.gradle signing config checks this env var to
-          # decide between the production keystore and the debug fallback.
           RELEASE_STORE_FILE: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' && 'release.keystore' || '' }}
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           cd android
-          # Always build the RELEASE build type — this is what makes Gradle
-          # bundle the JS into assets. Never fall back to assembleDebug: a
-          # debug-type build expects Metro running and produces the
-          # "Unable to load script" error when sideloaded standalone.
           ./gradlew assembleRelease
 
       - name: Locate APK
