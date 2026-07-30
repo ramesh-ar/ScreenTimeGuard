@@ -3,7 +3,7 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 react {
-    // Default RN autolinking / bundling config — no overrides needed.
+    autolinkLibrariesWithApp()
 }
 
 /**
